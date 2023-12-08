@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace RFEM5ToRFEM6Transverer.Properties {
+namespace RFEM5ToRFEM6Transverter.Properties {
     using System;
     
     

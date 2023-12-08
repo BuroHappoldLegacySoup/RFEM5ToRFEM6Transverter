@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace RFEM5ToRFEM6Transverer
+namespace RFEM5ToRFEM6Transverter
 {
     internal static class Program
     {
