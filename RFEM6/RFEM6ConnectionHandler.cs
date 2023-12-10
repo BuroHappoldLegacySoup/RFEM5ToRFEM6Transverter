@@ -66,8 +66,6 @@ namespace RFEM5ToRFEM6Transverter.RFEM6
             //System.GC.WaitForPendingFinalizers();
             model = new RfemModelClient(Binding, new EndpointAddress(modelUrl));
 
-
-
             //model.set_node(new node()
             //{
             //    no = 3,
