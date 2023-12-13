@@ -84,6 +84,17 @@ namespace RFEM5ToRFEM6Transverter.RFEM5
             return model;
         }
 
+        public static IModel SelectCurrentRFEM5Model() {
+
+
+            application = Marshal.GetActiveObject("RFEM5.Application") as rf5.IApplication;
+            application.LockLicense();
+            model = application.GetActiveModel();
+
+            return model;
+
+        }
+
 
         private static bool IsApplicationRunning()
         {

@@ -51,8 +51,9 @@ namespace RFEM5ToRFEM6Transverter.RFEM6
             modelUrl = "";
             if (filePath != "")
             {
-                application.get_model_list_with_indexes().ToList().ForEach(m=>application.close_model(m.index,false));
-                //String[] mdl = application.get_model_list();
+                //application.get_model_list_with_indexes().ToList().ForEach(m=>application.close_model(m.index,false));
+                String[] mdl = application.get_model_list();
+                //if (mdl.Count() > 0) { application.get_model_list_with_indexes().ToList().ForEach(m => application.close_model(m.index, false)); }
                 modelUrl = application.open_model(filePath);
                 //Thread.Sleep(10000);
             }
@@ -79,6 +80,17 @@ namespace RFEM5ToRFEM6Transverter.RFEM6
             m_Model = model;
         }
 
+
+        public static RfemModelClient SelectCurrentRFEM6Model() {
+
+
+            string modelUrl = application.get_active_model();
+            m_Model = new RfemModelClient(Binding, new EndpointAddress(modelUrl));
+
+            return m_Model;
+        }
+
+
         public static void DisconnectFromRFEM6Model()
         {
             m_Model.close_connection();
@@ -87,6 +99,7 @@ namespace RFEM5ToRFEM6Transverter.RFEM6
 
         public static void ConnectToRFEM6Model()
         {
+            string modelUrl = application.get_active_model();
             m_Model = new RfemModelClient(Binding, new EndpointAddress(modelUrl));
         }
 
