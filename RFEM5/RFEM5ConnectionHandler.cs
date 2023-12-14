@@ -22,67 +22,67 @@ namespace RFEM5ToRFEM6Transverter.RFEM5
         static IModel model = null;
         static IView view = null;
 
-        public static IModel ConnectRFEM5(String filePath)
-        {
+        //public static IModel ConnectRFEM5(String filePath)
+        //{
 
-            try
-            {
+        //    try
+        //    {
 
-                if (IsApplicationRunning())
-                {
+        //        if (IsApplicationRunning())
+        //        {
 
-                    application = Marshal.GetActiveObject("RFEM5.Application") as rf5.IApplication;
-                    application.LockLicense();
-                    model = application.GetActiveModel();
+        //            application = Marshal.GetActiveObject("RFEM5.Application") as rf5.IApplication;
+        //            application.LockLicense();
+        //            model = application.GetActiveModel();
 
-                }
-                else
-                {
-                    // Creates new RFEM5 instance and gets it's interface.
-                    application = new Dlubal.RFEM5.Application();
+        //        }
+        //        else
+        //        {
+        //            // Creates new RFEM5 instance and gets it's interface.
+        //            application = new Dlubal.RFEM5.Application();
 
-                    // Shows RFEM GUI.
-                    application.Show();
+        //            // Shows RFEM GUI.
+        //            application.Show();
 
-                    if (filePath != "") { model = application.OpenModel(filePath); }
-                    else
-                    {// Creates a new model and gets it's interface.
-                        model = application.CreateModel("MyTestModel");
-                    }
-                }
-                //SetStructuralData(model);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                ////labelInfo.Text = "Ready";
+        //            if (filePath != "") { model = application.OpenModel(filePath); }
+        //            else
+        //            {// Creates a new model and gets it's interface.
+        //                model = application.CreateModel("MyTestModel");
+        //            }
+        //        }
+        //        //SetStructuralData(model);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        //    }
+        //    finally
+        //    {
+        //        ////labelInfo.Text = "Ready";
 
-                //// View All
-                //view = model.GetActiveView();
-                //view.ShowAll();
-                //view = null;
+        //        //// View All
+        //        //view = model.GetActiveView();
+        //        //view.ShowAll();
+        //        //view = null;
 
-                //// Releases RFEM model interface.
-                //model = null;
+        //        //// Releases RFEM model interface.
+        //        //model = null;
 
-                //// Unlocks licence and releases RFEM application interface.
-                //if (application != null)
-                //{
-                //    application.UnlockLicense();
-                //    application = null;
-                //}
+        //        //// Unlocks licence and releases RFEM application interface.
+        //        //if (application != null)
+        //        //{
+        //        //    application.UnlockLicense();
+        //        //    application = null;
+        //        //}
 
-                // Cleans Garbage Collector and releases all cached COM interfaces and objects.
-                System.GC.Collect();
-                System.GC.WaitForPendingFinalizers();
-            }
+        //        // Cleans Garbage Collector and releases all cached COM interfaces and objects.
+        //        System.GC.Collect();
+        //        System.GC.WaitForPendingFinalizers();
+        //    }
 
-            //application.UnlockLicense();
-            return model;
-        }
+        //    //application.UnlockLicense();
+        //    return model;
+        //}
 
         public static IModel SelectCurrentRFEM5Model() {
 

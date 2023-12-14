@@ -38,11 +38,12 @@ namespace RFEM5ToRFEM6Transverter
             this.Text = "RFEM5 to RFEM6 Transverter";
         }
 
- 
+
 
 
         private void button3_Click(object sender, EventArgs e)
         {
+            HashSet<int> sections = new HashSet<int>() { 1, 2, 3, 4, 5, 6 };
             //Connect and Load From RFEM5
             this.rf5Model = RFEM5ConnectionHandler.SelectCurrentRFEM5Model();
             this.rf5ModelData = rf5Model.GetModelData();
@@ -50,9 +51,14 @@ namespace RFEM5ToRFEM6Transverter
             rf5Model.GetCalculation().CalculateApp();
             rf5Result1 = rf5Model.GetCalculation().GetResultsInFeNodes(rf5.LoadingType.LoadCaseType, 1);
 
-            List<int> memberNumbers=this.rf5ModelData.GetMembers().Select(m => m.No).ToList();
+            List<int> memberNumbers = this.rf5ModelData.GetMembers().Select(m => m.No).ToList();
 
-            memberNumbers.ForEach(m =>this.rf5MemberForces.Add(this.rf5Result1.GetMemberInternalForces(m, rf5.ItemAt.AtNo, true)));
+            if (sections.Count() != 0)
+            {
+                memberNumbers = (rf5ModelData.GetMembers().ToList()).Where(m => sections.Contains(m.StartCrossSectionNo)).Select(m => m.No).ToList();
+            }
+
+            memberNumbers.ForEach(m => this.rf5MemberForces.Add(this.rf5Result1.GetMemberInternalForces(m, rf5.ItemAt.AtNo, true)));
 
             //this.rf5MemberForces.Add(this.rf5Result1.GetMemberInternalForces(1, rf5.ItemAt.AtNo, true));
 
@@ -63,29 +69,50 @@ namespace RFEM5ToRFEM6Transverter
 
 
 
-
             //Reading elements from RFEM5 model
-            var rf5Nodes = rf5ModelData.GetNodes().ToList();
+            List<Node> rf5Nodes = rf5ModelData.GetNodes().ToList();
             var rf5Lines = rf5ModelData.GetLines().ToList();
             var rf5Materials = rf5ModelData.GetMaterials().ToList();
             var rf5Sections = rf5ModelData.GetCrossSections().ToList();
             var rf5Members = rf5ModelData.GetMembers().ToList();
             var rf5NodalSupports = rf5ModelData.GetNodalSupports().ToList();
 
-            // Transverting elements from RFEM5 to RFEM6
-            Dictionary<Point3D, int> rf5ToRf6NodeDictionary = new Dictionary<Point3D, int>(new Point3DComparer());
-            rf5Nodes.ForEach(n => rf5ToRf6NodeDictionary[new Point3D() {X=n.X,Y=n.Y, Z=n.Z }]=n.No);
-
-            Dictionary<int, List<int>> memberIdNodeIdsListDict = new Dictionary<int, List<int>>();
-            var memberLines = rf5Members.Select(m =>rf5ModelData.GetLine(m.LineNo,rf5.ItemAt.AtNo).GetData()).ToList();
-            memberLines.ForEach(ml => memberIdNodeIdsListDict[ml.No] = GetNodeIdsFromLine(ml));
-            
-            
-
-                foreach (var rf5Node in rf5Nodes)
+            if (sections.Count() != 0)
             {
 
-                var rf6Node = RFEM5ToRFEM6Transverter.Transverter.RFEM5ToRFEM6Transverter.NodeTransverter(rf5Node);
+                rf5Sections = sections.Select(s => rf5ModelData.GetCrossSection(s, rf5.ItemAt.AtNo).GetData()).ToList();
+                rf5Materials = rf5Sections.Select(s => rf5ModelData.GetMaterial(s.MaterialNo, rf5.ItemAt.AtNo).GetData()).ToList();
+                rf5Members = (rf5ModelData.GetMembers().ToList()).Where(m => sections.Contains(m.StartCrossSectionNo)).ToList();
+                HashSet<int> memberLineIdSet = new HashSet<int>(rf5Members.Select(m => m.LineNo));
+                rf5Lines = (rf5ModelData.GetLines().ToList()).Where(l => memberLineIdSet.Contains(l.No)).ToList();
+                HashSet<int> nodeIdList = rf5Lines.SelectMany(l => GetNodeIdsFromLine(l)).ToHashSet();
+                rf5Nodes = (rf5ModelData.GetNodes().ToList()).Where(n => nodeIdList.Contains(n.No)).ToList();
+
+                //rf5Nodes = rf5ModelData.GetNodes().ToList();
+                //rf5NodalSupports = rf5ModelData.GetNodalSupports().ToList();
+                rf5NodalSupports = rf5ModelData.GetNodalSupports().ToList().Where(n => GetIdFromString(n.NodeList).ToHashSet().Intersect(nodeIdList).Count() > 0).ToList();
+
+
+            }
+
+
+            // Transverting elements from RFEM5 to RFEM6
+            //Dictionary<Point3D, int> rf5ToRf6NodeDictionary = new Dictionary<Point3D, int>(new Point3DComparer());
+            //rf5Nodes.ForEach(n => rf5ToRf6NodeDictionary[new Point3D() { X = n.X, Y = n.Y, Z = n.Z }] = n.No);
+
+            //Dictionary<int, List<int>> memberLineIdNodeIdsListDict = new Dictionary<int, List<int>>();
+            //List<Line> memberLines = rf5Members.Select(m => rf5ModelData.GetLine(m.No, rf5.ItemAt.AtNo).GetData()).ToList();
+            //var memberLineNodes = memberLines.Select(ml => GetNodeIdsFromLine(ml)).ToList();
+            //Dictionary<int, List<int>> memberIdNodeIdsListDict = new Dictionary<int, List<int>>();
+
+            //memberLines.ForEach(ml => memberLineIdNodeIdsListDict[ml.No] = GetNodeIdsFromLine(ml));
+
+
+
+            foreach (var rf5Node in rf5Nodes)
+            {
+
+                var rf6Node = NodeTransverter(rf5Node);
 
                 RFEM6ConnectionHandler.m_Model.set_node(rf6Node);
 
@@ -95,7 +122,7 @@ namespace RFEM5ToRFEM6Transverter
             foreach (var rf5Line in rf5Lines)
             {
 
-                var rf6Line = RFEM5ToRFEM6Transverter.Transverter.RFEM5ToRFEM6Transverter.LineTransverter(rf5Line);
+                var rf6Line = LineTransverter(rf5Line);
 
                 RFEM6ConnectionHandler.m_Model.set_line(rf6Line);
 
@@ -106,7 +133,7 @@ namespace RFEM5ToRFEM6Transverter
             {
 
 
-                var rf6Material = RFEM5ToRFEM6Transverter.Transverter.RFEM5ToRFEM6Transverter.MaterialTransverter(rf5Material);
+                var rf6Material = MaterialTransverter(rf5Material);
 
                 RFEM6ConnectionHandler.m_Model.set_material(rf6Material);
             }
@@ -115,7 +142,7 @@ namespace RFEM5ToRFEM6Transverter
             {
 
 
-                var rf6Setion = RFEM5ToRFEM6Transverter.Transverter.RFEM5ToRFEM6Transverter.SectionTransverter(rf5Section);
+                var rf6Setion = SectionTransverter(rf5Section);
 
                 RFEM6ConnectionHandler.m_Model.set_section(rf6Setion);
             }
@@ -125,7 +152,7 @@ namespace RFEM5ToRFEM6Transverter
             {
 
 
-                var rf6Member = RFEM5ToRFEM6Transverter.Transverter.RFEM5ToRFEM6Transverter.MemberTransverter(rf5Member);
+                var rf6Member = MemberTransverter(rf5Member);
 
                 RFEM6ConnectionHandler.m_Model.set_member(rf6Member);
             }
@@ -134,23 +161,51 @@ namespace RFEM5ToRFEM6Transverter
             {
 
 
-                var rf6NodalSupport = RFEM5ToRFEM6Transverter.Transverter.RFEM5ToRFEM6Transverter.NodalSupportTransverter(rf5NodalSupport);
+                var rf6NodalSupport = NodalSupportTransverter(rf5NodalSupport);
 
                 RFEM6ConnectionHandler.m_Model.set_nodal_support(rf6NodalSupport);
             }
 
-            RFEM6ConnectionHandler.m_Model.set_static_analysis_settings(RFEM5ToRFEM6Transverter.Transverter.RFEM5ToRFEM6Transverter.StaticAnalysisSettingCreator());
+            RFEM6ConnectionHandler.m_Model.set_static_analysis_settings(StaticAnalysisSettingCreator());
 
-            RFEM6ConnectionHandler.m_Model.set_load_case(RFEM5ToRFEM6Transverter.Transverter.RFEM5ToRFEM6Transverter.LoadCaseCreator());
+            RFEM6ConnectionHandler.m_Model.set_load_case(LoadCaseCreator());
 
-            
-            var rfNodalLoads=RFEM5ToRFEM6Transverter.Transverter.RFEM5ToRFEM6Transverter.ConstantShearForcesToPointLoad(this.rf5MemberForces, memberIdNodeIdsListDict);
 
-            rfNodalLoads.ForEach(nl => RFEM6ConnectionHandler.m_Model.set_nodal_load(1,nl));
+
+            //create Member Node List Dictionary
+            List<Line> memberLineList = rf5Members.Select(m => rf5ModelData.GetLine(m.No, rf5.ItemAt.AtNo).GetData()).ToList();
+            List<List<int>> memberLineNodeList= memberLineList.Select(ml => GetIdFromString(ml.NodeList)).ToList();
+            Dictionary<int, List<int>> memberIdNodeIdsListDict = new Dictionary<int, List<int>>();
+            for (int i = 0; i < rf5Members.Count(); i++) {
+
+                memberIdNodeIdsListDict[rf5Members[i].No] = memberLineNodeList[i];
+
+            }
+
+
+
+
+            var rfNodalLoads = ConstantShearForcesToPointLoad2(this.rf5MemberForces, memberIdNodeIdsListDict, rf5Nodes);
+
+            ////var rfNodalLoads = ConstantShearForcesToPointLoad(this.rf5MemberForces, memberIdNodeIdsListDict);
+
+
+            rfNodalLoads.ForEach(nl => RFEM6ConnectionHandler.m_Model.set_nodal_load(1, nl));
 
             RFEM6ConnectionHandler.DisconnectFromRFEM6Model();
 
 
         }
+
+        private void textBox1_TextChanged(object sender, EventArgs e)
+        {
+
+        }
+
+
+
+
+
+
     }
 }

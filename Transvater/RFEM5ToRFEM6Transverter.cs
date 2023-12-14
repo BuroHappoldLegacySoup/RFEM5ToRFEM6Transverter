@@ -57,7 +57,7 @@ namespace RFEM5ToRFEM6Transverter.Transverter
         {
 
             String[] splitRf5MaterialDesc = rf5Material.Description.Split('|')[0].Split(' ');
-            String name = splitRf5MaterialDesc[1] + splitRf5MaterialDesc[2];
+            String name = splitRf5MaterialDesc[0].StartsWith("Ersatzstab") ? "C30/37" : splitRf5MaterialDesc[1] + splitRf5MaterialDesc[2];
 
             rf6.material rf6Material = new rf6.material()
             {
@@ -103,6 +103,17 @@ namespace RFEM5ToRFEM6Transverter.Transverter
 
         }
 
+        public static List<int> GetIdFromString(String idString)
+        {
+
+            List<List<int>> nestedNodeList = idString.Split(',').ToList().Select(n => GenerateSequenceFromRange(n)).ToList();
+            List<int> nodeList = nestedNodeList.SelectMany(x => x).ToList();
+
+            return nodeList;
+
+        }
+
+
         public static List<int> GenerateSequenceFromRange(string range)
         {
             string[] parts = range.Split('-');
@@ -143,15 +154,23 @@ namespace RFEM5ToRFEM6Transverter.Transverter
 
         public static rf6.section SectionTransverter(rf5.CrossSection rf5Section)
         {
-            String name = rf5Section.Description.Split('|')[0];
+            String name = rf5Section.Description.StartsWith("Rectangle") ? "SQ_M1 0.5" : rf5Section.Description.Split('|')[0];
 
             rf6.section rf6Section = new rf6.section()
             {
                 no = rf5Section.No,
                 material = rf5Section.MaterialNo,
                 materialSpecified = true,
+                type = section_type.TYPE_PARAMETRIC_MASSIVE_I,
+                typeSpecified = true,
+                parametrization_type = section_parametrization_type.PARAMETRIC_MASSIVE_I__MASSIVE_SQUARE__SQ_M1,
+                parametrization_typeSpecified = true,
                 name = name,
             };
+
+
+
+
 
             return rf6Section;
         }
@@ -196,7 +215,7 @@ namespace RFEM5ToRFEM6Transverter.Transverter
             load_case rfLoadCase = new rf6.load_case()
             {
                 no = 1,
-                name = "ArnesLC",
+                name = "Customized LC",
                 static_analysis_settings = 1,
                 analysis_type = load_case_analysis_type.ANALYSIS_TYPE_STATIC,
                 analysis_typeSpecified = true,
@@ -217,21 +236,14 @@ namespace RFEM5ToRFEM6Transverter.Transverter
         {
 
             var nodalLoadList = new List<rf6.nodal_load>();
-            //int nodalLoadCounter = 1;
 
-            //foreach(var rfMF in rf5MemberForces.ToList())
-            //{
-            //    var loc=rfMF.Location;
-
-
-            //}
-            int globalNodalCounter=0;
+            int globalNodalCounter = 0;
 
             foreach (var rf5MemberForces in rf5MemberForcesList)
             {
                 var nodeIds = memberIdNodeIdsListDict[rf5MemberForces[0].MemberNo].ToArray();
                 int nodalLoadCounter = 0;
-                for (int i = 1; i < rf5MemberForces.Count()-1; i++)
+                for (int i = 1; i < rf5MemberForces.Count() - 1; i++)
                 {
 
 
@@ -260,12 +272,6 @@ namespace RFEM5ToRFEM6Transverter.Transverter
                             components_force_ySpecified = true,
                             components_force_z = prevForces.Z - currentForce.Z,
                             components_force_zSpecified = true,
-                            //components_moment_x = prevMoment.X - currentMoment.X,
-                            //components_moment_xSpecified = true,
-                            //components_moment_y = prevMoment.Y - currentMoment.Y,
-                            //components_moment_ySpecified = true,
-                            //components_moment_z = prevMoment.Z - currentMoment.Z,
-                            //components_moment_zSpecified = true,
                             load_type = nodal_load_load_type.LOAD_TYPE_COMPONENTS,
                             load_typeSpecified = true,
                         };
@@ -290,30 +296,15 @@ namespace RFEM5ToRFEM6Transverter.Transverter
                             components_force_ySpecified = true,
                             components_force_z = currentForce.Z,
                             components_force_zSpecified = true,
-                            //components_moment_x = prevMoment.X - currentMoment.X,
-                            //components_moment_xSpecified = true,
-                            //components_moment_y = prevMoment.Y - currentMoment.Y,
-                            //components_moment_ySpecified = true,
-                            //components_moment_z = prevMoment.Z - currentMoment.Z,
-                            //components_moment_zSpecified = true,
                             load_type = nodal_load_load_type.LOAD_TYPE_COMPONENTS,
                             load_typeSpecified = true,
                         };
 
                         nodalLoadList.Add(rf6NodalLoad);
 
-
-
-
                     }
 
-
-
-
                 }
-
-
-
 
             }
 
@@ -334,7 +325,59 @@ namespace RFEM5ToRFEM6Transverter.Transverter
 
             return new Point3D() { X = x, Y = y, Z = z };
         }
-    }
+
+
+        public static List<rf6.nodal_load> ConstantShearForcesToPointLoad2(List<rf5.MemberForces[]> rf5MemberForcesList, Dictionary<int, List<int>> memberIdNodeIdsListDict, List<Node> nodeList)
+        {
+
+            var nodalLoadList = new List<rf6.nodal_load>();
+
+            int nodeCounter = 0;
+            //iterating over relavant memberforces we do assume that shear forces are constant
+            foreach (var rf5MemberForces in rf5MemberForcesList) {
+
+
+                var nodeId = memberIdNodeIdsListDict[rf5MemberForces[0].MemberNo];
+
+                var correspointingNodes = nodeList.Where(n => nodeId.ToHashSet().Contains(n.No));
+
+                var maxNode = correspointingNodes.OrderByDescending(n => n.Z).First();
+
+                nodeCounter++;
+
+                nodal_load rf6NodalLoad = new rf6.nodal_load()
+                {
+                    no = nodeCounter,
+                    nodes = new int[] { maxNode.No },
+                    components_force_x = 1000,
+                    components_force_xSpecified = true,
+                    components_force_y = 1000,
+                    components_force_ySpecified = true,
+                    components_force_z = 1000,
+                    components_force_zSpecified = true,
+                    load_type = nodal_load_load_type.LOAD_TYPE_COMPONENTS,
+                    load_typeSpecified = true,
+                };
+
+                nodalLoadList.Add(rf6NodalLoad);
+
+
+
+
+            }
+
+
+
+            return nodalLoadList;
+
+        }
+
+
+
+        
+
+
+    } 
 
 
 
